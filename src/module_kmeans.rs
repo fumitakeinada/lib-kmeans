@@ -29,11 +29,8 @@ pub mod kmeans {
             self.cols = x.ncols();
 
             // データに対して、クラスタをランダムに割り当て
-            let mut labels:Vec<usize> = 
-                (0..x.nrows()).map(|_| {
-                    rand::thread_rng().gen_range(0..self.n_clusters)
-                }).collect();
-  
+            let mut labels:Vec<usize> = self.init_labels(&x, self.n_clusters);
+
             // 前回のクラスタ割り当て保存領域（データ数を0で初期化）
             let mut pre_labels = vec![0; x.nrows()];
 
@@ -118,6 +115,13 @@ pub mod kmeans {
             self.cols
         }
 
+
+        fn init_labels(& mut self, x:&Array2<f64>, n_clusters:usize) -> Vec<usize> {
+            (0..x.nrows()).map(|_| {
+                rand::thread_rng().gen_range(0..n_clusters)
+            }).collect()
+        }
+
         fn get_dist_mean(& mut self, x:&Array2<f64>, mean_points:&Array2<f64>) -> Result<Array2<f64>, ShapeError> {
             let mut dist_array:Array2<f64> = Array::zeros((0, x.nrows()));
             for i in 0..mean_points.nrows(){
@@ -161,7 +165,7 @@ pub mod kmeans {
     #[derive(Debug)]
     pub enum PredictError {
         ShapeError,
-        DimNumError(usize), 
+        DimNumError(usize), // 次元数エラー
     }
 
 }
