@@ -102,7 +102,7 @@ pub mod kmeans {
         pub fn predict(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, PredictError> {
             // 次元数の検査
             if self.cols != x.ncols() {
-                return Err(PredictError::ColNumError(x.ncols()))
+                return Err(PredictError::DimNumError(x.ncols()))
             }
 
 
@@ -161,7 +161,7 @@ pub mod kmeans {
     #[derive(Debug)]
     pub enum PredictError {
         ShapeError,
-        ColNumError(usize),
+        DimNumError(usize), 
     }
 
 }
