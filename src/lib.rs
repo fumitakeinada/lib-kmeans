@@ -37,7 +37,7 @@ mod tests {
         let train_data = make_train_data(data_num, mean, std_dev, dim );
         
         let mut km = module_kmeans::kmeans::KMeans::new(4, 50);
-        let labels = km.fit(&train_data);
+        let labels = km.fit(&train_data).unwrap();
         println!("train_data:{:?}", labels);
         assert_eq!(labels.len(), data_num);
     }
@@ -48,18 +48,23 @@ mod tests {
         let mean:f64 = 0.0; // mean
         let std_dev:f64 = 1.0; // standard deviation
         let dim = 2; // dimension
-        let data_num = 200;
+        let data_num = 2000;
 
         let train_data = make_train_data(data_num, mean, std_dev, dim );
         let mut km = module_kmeans::kmeans::KMeans::new(4, 50);
-        let labels = km.fit(&train_data);
-        println!("train_data:{:?}", labels);
-        assert_eq!(labels.len(), data_num);
+        let train_labels = km.fit(&train_data).unwrap();
+        println!("train_data for predict:{:?}", train_labels);
+        assert_eq!(train_labels.len(), data_num);
 
-        let labels = km.predict(&train_data);
-        println!("test_data:{:?}", labels);
-        assert_eq!(labels.len(), data_num);
+        let test_labels = match km.predict(&train_data){
+            Ok(r) => r,
+            Err(e) => {panic!("Error: {:?}",e);}
+        };
 
+        println!("test_data for predict:{:?}", test_labels);
+        assert_eq!(test_labels.len(), data_num);
+
+        assert_eq!(train_labels, test_labels);
 
     }
 }
