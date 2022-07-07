@@ -7,6 +7,18 @@ pub mod kmeans {
     use rand::Rng;
 
     use serde::{Serialize, Deserialize};
+    
+    pub trait KMeansModel {
+        // 初期化
+        fn new(n_clusters: usize, max_iter:usize) -> Self;
+
+        // 学習データに対する学習
+        fn fit(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, ShapeError>;
+        
+        // 推論データに対する予測
+        fn predict(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, PredictError>;
+
+    }
 
     pub struct KMeans {
         n_clusters: usize, // clusters number
@@ -15,9 +27,9 @@ pub mod kmeans {
         mean_points: Array2<f64>,
     }
 
-    impl KMeans {
-        pub fn new(n_clusters:usize, max_iter:usize) -> Self{
-            KMeans {
+    impl KMeansModel for KMeans {
+        fn new(n_clusters:usize, max_iter:usize) -> Self{
+            Self {
                 n_clusters: n_clusters, 
                 max_iter: max_iter,
                 cols: 0,
@@ -25,14 +37,19 @@ pub mod kmeans {
             }
         }
 
-        pub fn fit(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, ShapeError> {
-            self.cols = x.ncols();
+        fn fit(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, ShapeError> {
+            let data_num:usize = x.nrows();
+            let dim:usize = x.ncols();
+            let max_iter = self.max_iter;
+            self.cols = dim;
 
             // データに対して、クラスタをランダムに割り当て
             let mut labels:Vec<usize> = self.init_labels(&x, self.n_clusters);
 
+            //let mean_array:Array2<f64> = self.get_mean(labels);
+
             // 前回のクラスタ割り当て保存領域（データ数を0で初期化）
-            let mut pre_labels = vec![0; x.nrows()];
+            let mut pre_labels = vec![0; data_num];
 
             // 各データに属しているクラスタが変化しなくなるか、一定回数を繰り返して終了
             for _ in 0..self.max_iter {
@@ -44,7 +61,7 @@ pub mod kmeans {
                      }
                  }
                  // 全てのラベルが前回と同じ場合は終了
-                 if count == x.nrows() {
+                 if count == data_num {
                      break;
                  }
 
@@ -53,16 +70,17 @@ pub mod kmeans {
                  
                 // クラスタの重心計算
                 // 重心のArray2を作成（行はn_clusters数だけ）
-                let mut mean_array: Array2<f64> = Array::zeros((0,x.ncols()));
+                let mut mean_array: Array2<f64> = Array::zeros((0, dim));
                 
                 for i in 0..self.n_clusters {
                     // テンポラリのArray2を作成
-                    let mut tmp_array: Array2<f64> = Array::zeros((0,x.ncols())); 
+                    let mut tmp_array: Array2<f64> = Array::zeros((0, dim)); 
             
                     // クラスタに属するindexのイテレータを用意
                     let cluster_set_iter = labels.iter().positions(|v| v==&i);
 
                     // 対象のindexに属するデータのみをテンポラリに追加
+                    
                     for j in cluster_set_iter{
                         match tmp_array.push_row(x.slice(s![j, ..])) {
                             Ok(_) => {},
@@ -82,6 +100,7 @@ pub mod kmeans {
                     }
                     
                 }
+
                 // labelsの再割り当て
                 labels = match self.get_labels(x, &mean_array){
                     Ok(r) => {r},
@@ -96,7 +115,7 @@ pub mod kmeans {
         }
         
         // 推論（どの重心に近いかの区分）
-        pub fn predict(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, PredictError> {
+        fn predict(&mut self, x:&Array2<f64>) -> Result<Vec<usize>, PredictError> {
             // 次元数の検査
             if self.cols != x.ncols() {
                 return Err(PredictError::DimNumError(x.ncols()))
@@ -110,19 +129,24 @@ pub mod kmeans {
             };
         }
 
+
+    }
+
+    impl KMeans {
+        
         // Get dimension number.
-        pub fn get_dim(&mut self) -> usize {
+        pub fn get_dim(&self) -> usize {
             self.cols
         }
 
 
-        fn init_labels(& mut self, x:&Array2<f64>, n_clusters:usize) -> Vec<usize> {
+        fn init_labels(&self, x:&Array2<f64>, n_clusters:usize) -> Vec<usize> {
             (0..x.nrows()).map(|_| {
                 rand::thread_rng().gen_range(0..n_clusters)
             }).collect()
         }
 
-        fn get_dist_mean(& mut self, x:&Array2<f64>, mean_points:&Array2<f64>) -> Result<Array2<f64>, ShapeError> {
+        fn get_dist_mean(&self, x:&Array2<f64>, mean_points:&Array2<f64>) -> Result<Array2<f64>, ShapeError> {
             let mut dist_array:Array2<f64> = Array::zeros((0, x.nrows()));
             for i in 0..mean_points.nrows(){
                 let dist_array_tmp:Array2<f64> = x - &mean_points.slice(s![i, ..]);
@@ -135,7 +159,7 @@ pub mod kmeans {
             Ok(dist_array)
         }
 
-        fn get_labels(& mut self, x:&Array2<f64>, mean_points:&Array2<f64>) -> Result<Vec<usize>, ShapeError> {
+        fn get_labels(&self, x:&Array2<f64>, mean_points:&Array2<f64>) -> Result<Vec<usize>, ShapeError> {
             // データ毎の各重心との距離を算出
             let dist_array:Array2<f64> = match self.get_dist_mean(x, mean_points){
                 Ok(r) => {r},

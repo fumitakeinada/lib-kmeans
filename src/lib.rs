@@ -12,6 +12,7 @@ mod tests {
     use super::*;
     use ndarray_rand::RandomExt;
     use ndarray_rand::rand_distr::{Normal, Uniform};
+    use module_kmeans::kmeans::{KMeans,KMeansModel};
 
         // Make training data
     fn make_train_data(data_num:usize, mean:f64, std_dev:f64, dim: usize) -> Array2<f64>{
@@ -36,9 +37,9 @@ mod tests {
 
         let train_data = make_train_data(data_num, mean, std_dev, dim );
         
-        let mut km = module_kmeans::kmeans::KMeans::new(4, 50);
+        let mut km:KMeans = KMeans::new(4, 50);
         let labels = km.fit(&train_data).unwrap();
-        println!("train_data:{:?}", labels);
+        println!("train_data labels:{:?}", labels);
         assert_eq!(labels.len(), data_num);
     }
 
@@ -48,12 +49,12 @@ mod tests {
         let mean:f64 = 0.0; // mean
         let std_dev:f64 = 1.0; // standard deviation
         let dim = 2; // dimension
-        let data_num = 2000;
+        let data_num = 200;
 
         let train_data = make_train_data(data_num, mean, std_dev, dim );
-        let mut km = module_kmeans::kmeans::KMeans::new(4, 50);
+        let mut km:KMeans = KMeans::new(4, 50);
         let train_labels = km.fit(&train_data).unwrap();
-        println!("train_data for predict:{:?}", train_labels);
+        println!("train_data labels for predict:{:?}", train_labels);
         assert_eq!(train_labels.len(), data_num);
 
         let test_labels = match km.predict(&train_data){
@@ -61,7 +62,7 @@ mod tests {
             Err(e) => {panic!("Error: {:?}",e);}
         };
 
-        println!("test_data for predict:{:?}", test_labels);
+        println!("test_data labels for predict:{:?}", test_labels);
         assert_eq!(test_labels.len(), data_num);
 
         assert_eq!(train_labels, test_labels);
