@@ -13,36 +13,57 @@ pub mod kmeans {
         fn new(n_clusters: usize, max_iter:usize) -> Self;
 
         // 学習データに対する学習
-        fn fit(&mut self, x:&Array2<f64>) -> Result<Vec<usize>, ShapeError>;
+        fn fit(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, ShapeError> {
+
+            let (n_clusters, max_iter) = self.get_params();
+
+            let init_labels_alg = self.get_init_labels_alg();
+
+            // データに対して、クラスタを初期化（初期化関数を指定）
+            let init_labels:Vec<usize> = (init_labels_alg)(&x, n_clusters);
+
+            // 重心を計算し、重心とクラスタを得る。
+            match fit_clusters(x, init_labels, n_clusters, max_iter) {
+                Ok(r) => {
+                    self.set_mean_points(&r.1);
+                    Ok(r.0)
+                },
+                Err(e) => {return Err(e)},
+            }
+        }
         
         // 推論データに対する予測（どの重心に近いかの区分）
         fn predict(&mut self, x:&Array2<f64>) -> Result<Vec<usize>, PredictError> {
+            let mean_points = self.get_mean_points();
+
             // 次元数の検査
-            if self.get_dim() != x.ncols() {
+            if mean_points.ncols() != x.ncols() {
                 return Err(PredictError::DimNumError(x.ncols()))
             }
 
-            //let mean_points = self.mean_points.clone();
-            let mean_points = self.get_mean_points();
             match get_labels(x, &mean_points) {
                 Ok(r) => {return Ok(r)},
-                Err(e) => {return Err(PredictError::ShapeError)},
+                Err(_e) => {return Err(PredictError::ShapeError)},
             };
         }
 
-        // 学習データに対する次元
-        fn get_dim(& self) -> usize;
+        // パラメータの取得（クラスタ数、最大試行回数）
+        fn get_params(&self) -> (usize, usize);
 
-        // 学習データに対する重心の取得
+        // 学習データに対する重心
         fn get_mean_points(&self) -> Array2<f64>;
+        fn set_mean_points(&mut self, mean_points:&Array2<f64>);
 
+        // クラスタ初期化のアルゴリズム選択        
+        fn get_init_labels_alg(&self) -> fn(&Array2<f64>, usize) -> Vec<usize>;
+        
     }
 
     pub struct KMeans {
         n_clusters: usize, // clusters number
         max_iter: usize, 
-        dim: usize, // 学習データの次元数（列数）
         mean_points: Array2<f64>,
+        init_labels_alg :fn(&Array2<f64>, usize) -> Vec<usize>,// クラスタ初期化関数の指定
     }
     
     impl KMeansModel for KMeans {
@@ -50,38 +71,26 @@ pub mod kmeans {
             Self {
                 n_clusters: n_clusters, 
                 max_iter: max_iter,
-                dim: 0,
                 mean_points: Array::zeros((0, 0)),
+                init_labels_alg : init_labels // クラスタ初期化関数の指定
             }
         }
 
-        fn fit(& mut self, x:&Array2<f64>) -> Result<Vec<usize>, ShapeError> {
-            let dim:usize = x.ncols();
-            let n_clusters:usize = self.n_clusters;
-            let max_iter = self.max_iter;
-            self.dim = dim;
-
-            // データに対して、クラスタをランダムに割り当て
-            let init_labels:Vec<usize> = init_labels(&x, n_clusters);
-
-            // 重心を計算し、重心とクラスタを得る。
-            match fit_clusters(x, init_labels, n_clusters, max_iter) {
-                Ok(r) => {
-                    self.mean_points = r.1;
-                    Ok(r.0)
-                },
-                Err(e) => {return Err(e)},
-            }
-        }
-        
-        // Get dimension number.
-        fn get_dim(&self) -> usize {
-            self.dim
+        fn get_params(&self) -> (usize, usize) {
+            return (self.n_clusters, self.max_iter);
         }
 
         // 学習された重心の取得
         fn get_mean_points(&self) -> Array2<f64> {
             self.mean_points.clone()
+        }
+
+        fn set_mean_points(&mut self, mean_points:&Array2<f64>) {
+            self.mean_points = mean_points.clone();
+        }
+
+        fn get_init_labels_alg(&self) -> fn(&Array2<f64>, usize) -> Vec<usize> {
+            self.init_labels_alg
         }
 
     }
@@ -145,7 +154,6 @@ pub mod kmeans {
                         }
                     },
                 }
-                
             }
 
             // labelsの再割り当て
